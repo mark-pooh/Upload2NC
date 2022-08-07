@@ -3,10 +3,6 @@ Upload to NextCloud and Create Sharing link
 
 Setting used in **appsettings.json.**
 
-Change the username & password only. 
-
-Oh and change the username part in **rootPath** to nextcloud username  
-
 ```
 {
     "Serilog": {
@@ -34,3 +30,8 @@ Oh and change the username part in **rootPath** to nextcloud username
     }
 }
 ```
+
+Items to modify:
+- Username
+- Password
+- username in RootPath
