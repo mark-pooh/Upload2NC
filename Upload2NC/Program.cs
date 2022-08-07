@@ -173,7 +173,7 @@ namespace Upload2NC
             return res;
         }
 
-        static string GetLink(string hostname, string username, string password, string endpoint)
+        static string GetLink(string hostname, string username, string password, string endpoint, string filename)
         {
             string url = string.Format("{0}{1}{2}", hostname, endpoint, "shares");
             string auth = string.Format("{0}:{1}", username, password);
@@ -191,7 +191,7 @@ namespace Upload2NC
             XElement incomingXml = XElement.Parse(reader.ReadToEnd());
 
             var elements = (from x in incomingXml.Descendants("element")
-                            where x.Element("file_target").Value.Contains("nomnom")
+                            where x.Element("file_target").Value.Contains(filename)
                             select x).SingleOrDefault();
 
             return elements.Element("url").Value;
