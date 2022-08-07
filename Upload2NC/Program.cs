@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Newtonsoft.Json;
 using Serilog;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -18,7 +17,7 @@ namespace Upload2NC
             {
                 string rootDir = string.Format("{0}", Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
                 string settingFile = Path.Combine(rootDir, "settings.txt");
-                string filename, localFile, remoteFile = string.Empty;
+                string filename, processed, localFile, remoteFile = string.Empty;
                 Response linkResponse = new();
 
                 if (File.Exists(settingFile))
@@ -56,7 +55,12 @@ namespace Upload2NC
                                 {
                                     linkResponse = CreateLink(hostname, username, password, ocsEndpoint, string.Format("{0}/{1}", uploadDir, filename), localFile, filename);
 
-                                    if (linkResponse.Status == "success") Log.Information("Shared link for {0} : {1}", filename, linkResponse.Message);
+                                    if (linkResponse.Status == "success")
+                                    {
+                                        processed = Path.Combine("{0}{1}/{2}", rootPath, uploadDir, filename);
+                                        Log.Information("Shared link for {0} : {1}", filename, linkResponse.Message);
+                                        File.Move(localFile, processed);
+                                    }
                                     else Log.Error("Unable to create share link. \nMessage: {0}", linkResponse.Message);
                                 }
                             }
