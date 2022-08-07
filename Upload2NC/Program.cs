@@ -11,17 +11,18 @@ namespace Upload2NC
     {
         static void Main()
         {
-            ConfigureLogger();
+            string rootDir = string.Format("{0}", Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
+            string settingFile = Path.Combine(rootDir, "appsettings.json");
 
-            try
+            if (File.Exists(settingFile))
             {
-                string rootDir = string.Format("{0}", Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
-                string settingFile = Path.Combine(rootDir, "appsettings.json");
-                string filename, localFile, remoteFile = string.Empty;
-                Response linkResponse = new();
+                ConfigureLogger();
 
-                if (File.Exists(settingFile))
+                try
                 {
+                    string filename, localFile, remoteFile = string.Empty;
+                    Response linkResponse = new();
+
                     var NCloudConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
                     string hostname = NCloudConfig.GetValue<string>("NextCloud:Hostname");
@@ -71,17 +72,17 @@ namespace Upload2NC
                         Directory.CreateDirectory(uploadDir);
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    File.Create(settingFile);
+                    Log.Error(ex.ToString());
                 }
-            }
-            catch(Exception ex)
-            {
-                Log.Error(ex.ToString());
-            }
 
-            Log.CloseAndFlush();
+                Log.CloseAndFlush();
+            }
+            else
+            {
+                File.Create(settingFile);
+            }
         }
 
         static bool Upload(string hostname, string username, string password, string remoteFile, string localFile)
