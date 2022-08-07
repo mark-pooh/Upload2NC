@@ -16,21 +16,21 @@ namespace Upload2NC
             try
             {
                 string rootDir = string.Format("{0}", Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location));
-                string settingFile = Path.Combine(rootDir, "settings.txt");
+                string settingFile = Path.Combine(rootDir, "appsettings.json");
                 string filename, localFile, remoteFile = string.Empty;
                 Response linkResponse = new();
 
                 if (File.Exists(settingFile))
                 {
-                    string[] data = File.ReadAllLines(settingFile);
+                    var NCloudConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-                    string hostname = data[0].Split(':')[1].Trim();
-                    string port = data[1].Split(':')[1].Trim();
-                    string username = data[2].Split(':')[1].Trim();
-                    string password = data[3].Split(':')[1].Trim();
-                    string rootPath = data[4].Split(':')[1].Trim();
-                    string uploadDir = data[5].Split(':')[1].Trim();
-                    string ocsEndpoint = data[6].Split(':')[1].Trim();
+                    string hostname = NCloudConfig.GetValue<string>("NextCloud:Hostname");
+                    string port = NCloudConfig.GetValue<int>("NextCloud:Port").ToString();
+                    string username = NCloudConfig.GetValue<string>("NextCloud:Username");
+                    string password = NCloudConfig.GetValue<string>("NextCloud:Password");
+                    string rootPath = NCloudConfig.GetValue<string>("NextCloud:RootPath");
+                    string uploadDir = NCloudConfig.GetValue<string>("NextCloud:UploadFolder");
+                    string ocsEndpoint = NCloudConfig.GetValue<string>("NextCloud:OCSEndPoint");
 
                     hostname = (port == "443") ? string.Format("https://{0}", hostname) : string.Format("http://{0}", hostname);
 
@@ -40,7 +40,7 @@ namespace Upload2NC
 
                         if (files.Length > 0)
                         {
-                            foreach(string file in files)
+                            foreach (string file in files)
                             {
                                 filename = Path.GetFileName(file);
                                 localFile = Path.Combine(rootDir, uploadDir, filename);
@@ -54,7 +54,7 @@ namespace Upload2NC
                                 if (proceed)
                                 {
                                     //Call synchronous API - Create shared link from uploaded file
-                                    linkResponse = CreateLink(hostname, username, password, ocsEndpoint, string.Format("{0}/{1}", uploadDir, filename), localFile, filename);
+                                    linkResponse = CreateLink(hostname, username, password, ocsEndpoint, string.Format("{0}/{1}", uploadDir, filename));
 
                                     if (linkResponse.Status == "success")
                                     {
@@ -73,8 +73,7 @@ namespace Upload2NC
                 }
                 else
                 {
-                    using StreamWriter sw = File.AppendText(settingFile);
-                    sw.Write("hostname: spt.tm.com.my\nport: 443\nusername: \npassword: \nrootPath: \nuploadFolder: \nOCSEndPoint: /fileshare/ocs/v2.php/apps/files_sharing/api/v1/");
+                    File.Create(settingFile);
                 }
             }
             catch(Exception ex)
@@ -106,7 +105,7 @@ namespace Upload2NC
             return false;
         }
 
-        static Response CreateLink(string hostname, string username, string password, string endpoint, string remoteFile, string localFile, string filename)
+        static Response CreateLink(string hostname, string username, string password, string endpoint, string remoteFile)
         {
             /*
              * Share Types
@@ -131,7 +130,7 @@ namespace Upload2NC
             request.Headers.TryAddWithoutValidation("Authorization", $"Basic { base64authorization }");
 
             request.Content = new StringContent(data);
-            request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/x-www-form-urlencoded");
+            request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
 
             var response = httpClient.Send(request);
             using var reader = new StreamReader(response.Content.ReadAsStream());
@@ -190,6 +189,7 @@ namespace Upload2NC
 
             XElement incomingXml = XElement.Parse(reader.ReadToEnd());
 
+            //Should have retrieve id but its ok for now
             var elements = (from x in incomingXml.Descendants("element")
                             where x.Element("file_target").Value.Contains(filename)
                             select x).SingleOrDefault();
@@ -199,7 +199,7 @@ namespace Upload2NC
 
         static void ConfigureLogger()
         {
-            var configuration = new ConfigurationBuilder()
+            IConfigurationRoot configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json")
                 .Build();
@@ -216,3 +216,7 @@ namespace Upload2NC
         public string? Message { get; set; }
     }
 }
+
+/*
+ * https://stackoverflow.com/questions/31453495/how-to-read-appsettings-values-from-a-json-file-in-asp-net-core
+ */
