@@ -27,6 +27,11 @@ Setting used in **appsettings.json.**
       "RootPath": "/fileshare/remote.php/dav/files/username/",
       "UploadFolder": "_uploads",
       "OCSEndPoint": "/fileshare/ocs/v2.php/apps/files_sharing/api/v1/"
+    },
+    "Connection": {
+      "DataSource": "ip:port/sid",
+      "UserID": "userid",
+      "Password": "password"
     }
 }
 ```
@@ -35,3 +40,6 @@ Items to modify:
 - Username
 - Password
 - username in RootPath
+- DataSource
+- UserID
+- Password
