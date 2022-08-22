@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Oracle.ManagedDataAccess.Client;
 using Serilog;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -16,28 +17,40 @@ namespace Upload2NC
 
             if (File.Exists(settingFile))
             {
-                ConfigureLogger();
+                IConfigurationRoot configuration = ConfigureLogger();
 
                 try
                 {
                     string filename, localFile, remoteFile = string.Empty;
                     Response linkResponse = new();
 
-                    var NCloudConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                    #region Configure nextcloud
 
-                    string hostname = NCloudConfig.GetValue<string>("NextCloud:Hostname");
-                    string port = NCloudConfig.GetValue<int>("NextCloud:Port").ToString();
-                    string username = NCloudConfig.GetValue<string>("NextCloud:Username");
-                    string password = NCloudConfig.GetValue<string>("NextCloud:Password");
-                    string rootPath = NCloudConfig.GetValue<string>("NextCloud:RootPath");
-                    string uploadDir = NCloudConfig.GetValue<string>("NextCloud:UploadFolder");
-                    string ocsEndpoint = NCloudConfig.GetValue<string>("NextCloud:OCSEndPoint");
+                    string hostname = configuration.GetValue<string>("NextCloud:Hostname");
+                    string port = configuration.GetValue<int>("NextCloud:Port").ToString();
+                    string username = configuration.GetValue<string>("NextCloud:Username");
+                    string password = configuration.GetValue<string>("NextCloud:Password");
+                    string rootPath = configuration.GetValue<string>("NextCloud:RootPath");
+                    string uploadDir = configuration.GetValue<string>("NextCloud:UploadFolder");
+                    string ocsEndpoint = configuration.GetValue<string>("NextCloud:OCSEndPoint");
 
                     hostname = (port == "443") ? string.Format("https://{0}", hostname) : string.Format("http://{0}", hostname);
+
+                    #endregion
 
                     if (Directory.Exists(uploadDir))
                     {
                         var files = Directory.GetFiles(uploadDir);
+
+                        #region Setting DB connection
+
+                        string dbDataSource = configuration.GetValue<string>("Connection:DataSource");
+                        string dbUserID = configuration.GetValue<string>("Connection:UserID");
+                        string dbPassword = configuration.GetValue<string>("Connection:Password");
+
+                        string connString = string.Format("Data Source={0};User Id={1};Password={2}", dbDataSource, dbUserID, dbPassword);
+
+                        #endregion
 
                         if (files.Length > 0)
                         {
@@ -59,8 +72,32 @@ namespace Upload2NC
 
                                     if (linkResponse.Status == "success")
                                     {
+                                        #region Update DB link value
+
+                                        OracleConnection conn = new(connString);
+                                        conn.Open();
+
+                                        OracleCommand cmd = new()
+                                        {
+                                            Connection = conn,
+                                            CommandText = "UPDATE NEPSCOMSOF.WV_JOB_BND SET DOWNLOAD_LINK = :link WHERE FILENAME = :filename",
+                                            CommandType = System.Data.CommandType.Text
+                                        };
+                                        cmd.Parameters.Add(":link", linkResponse.Message);
+                                        cmd.Parameters.Add(":filename", filename);
+
+                                        var procResponse = cmd.ExecuteNonQuery();
+
+                                        if(procResponse > 0) File.Delete(localFile);
+
+                                        cmd.Dispose();                                       
+
+                                        conn.Dispose();
+                                        conn.Close();
+
+                                        #endregion
+
                                         Log.Information("Shared link for {0} : {1}", filename, linkResponse.Message);
-                                        File.Delete(localFile);
                                     }
                                     else Log.Error("Unable to create share link. \nMessage: {0}", linkResponse.Message);
                                 }
@@ -198,7 +235,7 @@ namespace Upload2NC
             return elements.Element("url").Value;
         }
 
-        static void ConfigureLogger()
+        static IConfigurationRoot ConfigureLogger()
         {
             IConfigurationRoot configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
@@ -208,6 +245,8 @@ namespace Upload2NC
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(configuration)
                 .CreateLogger();
+
+            return configuration;
         }
     }
 
