@@ -1,5 +1,5 @@
 # Upload2NC
-Upload to NextCloud and Create Sharing link
+Use HttpClient to upload to NextCloud and Create Sharing link
 
 Setting used in **appsettings.json.**
 
